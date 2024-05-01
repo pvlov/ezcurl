@@ -4,7 +4,7 @@ on:
     branches:
       - master
 jobs:
-  format-and-lint:
+  format-and-lint-and-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -12,12 +12,13 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Set up Rust dependencies
-        uses: actions/setup-rust@v2
-        with:
-          profile: minimal
+        uses: moonrepo/setup-rust@v1
 
       - name: Run cargo fmt
         run: cargo fmt --verbose --all -- --check
 
       - name: Run cargo clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run cargo test
+        run: cargo test --verbose
