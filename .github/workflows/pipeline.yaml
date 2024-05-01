@@ -1,0 +1,25 @@
+name: Pipeline
+run-name: Pipline for EZcurl
+on:
+  push:
+    branches:
+      - master
+jobs:
+  format-and-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Rust dependencies
+        uses: actions/setup-rust@v2
+        with:
+          profile: minimal
+
+      - name: Run cargo fmt
+      - run: |
+          cargo fmt --verbose --all -- --check
+
+      - name: Run cargo clippy
+        run: |
+          cargo clippy --all-targets --all-features -- -D warnings

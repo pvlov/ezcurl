@@ -1,18 +1,26 @@
 use std::process::Command;
 
 use eframe::{run_native, App, CreationContext, NativeOptions};
-use egui::{
-    ahash::HashMap, CentralPanel, ComboBox, ScrollArea, SidePanel, TextEdit, TopBottomPanel,
-};
+use egui::{CentralPanel, ComboBox, ScrollArea, SidePanel, TextEdit, TopBottomPanel};
+use serde_json::json;
 
 const ALL_REQUEST_TYPES: [(RequestType, &str); 2] =
-    [(RequestType::GET, "GET"), (RequestType::POST, "POST")];
+    [(RequestType::Get, "GET"), (RequestType::Post, "POST")];
+
+const CLIPBOARD_EMOJI: &str = "📋";
+const WASTEBASKET_EMOJI: &str = "X";
 
 #[derive(Debug, Default, PartialEq)]
 enum RequestType {
     #[default]
-    GET,
-    POST,
+    Get,
+    Post,
+}
+#[derive(Debug, PartialEq, PartialOrd)]
+struct JSONField {
+    key: String,
+    value: String,
+    is_multi_line: bool,
 }
 
 #[derive(Default)]
@@ -21,7 +29,7 @@ struct Ezcurl {
     height: f32,
     method: RequestType,
     url: String,
-    input: HashMap<String, String>,
+    input: Vec<JSONField>,
     output: String,
 }
 
@@ -61,26 +69,86 @@ impl Ezcurl {
                 if ui.button("Make Request").clicked() {
                     self.make_request();
                 }
+
+                if ui.button(CLIPBOARD_EMOJI).clicked() {
+                    ui.output_mut(|out| {
+                        out.copied_text = self.output.clone();
+                    });
+                }
             })
         });
 
         SidePanel::right("right_panel").show(ctx, |ui| {
-            ui.label(self.output.clone());
+            ui.label(&self.output);
         });
 
-        CentralPanel::default().show(ctx, |ui| {});
+        CentralPanel::default().show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                if ui.button("Add single-line field").clicked() {
+                    self.input.push(JSONField {
+                        key: String::from(""),
+                        value: String::from(""),
+                        is_multi_line: false,
+                    });
+                }
+
+                if ui.button("Add multi-line field").clicked() {
+                    self.input.push(JSONField {
+                        key: String::from(""),
+                        value: String::from(""),
+                        is_multi_line: true,
+                    })
+                }
+            });
+
+            ScrollArea::vertical().show(ui, |ui| {
+                let mut elem_to_remove = None;
+                for (i, entry) in self.input.iter_mut().enumerate() {
+                    ui.horizontal(|ui| {
+                        ui.text_edit_singleline(&mut entry.key);
+                        if entry.is_multi_line {
+                            ui.text_edit_multiline(&mut entry.value);
+                        } else {
+                            ui.text_edit_singleline(&mut entry.value);
+                        }
+
+                        if ui.button(WASTEBASKET_EMOJI).clicked() {
+                            elem_to_remove = Some(i);
+                        }
+                    });
+                }
+                if let Some(index) = elem_to_remove {
+                    self.input.remove(index);
+                }
+            });
+        });
     }
 
     fn make_request(&mut self) {
+        let payload = json!(&self
+            .input
+            .iter()
+            .map(|json_field| format!("{}:{}", json_field.key, json_field.value))
+            .collect::<Vec<_>>()
+            .join("\n"));
+
         self.output = Command::new("curl")
             .arg("-X")
             .arg(match self.method {
-                RequestType::GET => "GET",
-                RequestType::POST => "POST",
+                RequestType::Get => "GET",
+                RequestType::Post => "POST",
             })
+            .arg(match self.input.is_empty() {
+                true => "",
+                false => "-H Content-Type: application/json",
+            })
+            .arg(match self.input.is_empty() {
+                true => String::from(""),
+                false => format!("-d {}", payload),
+            })
+            .arg(&self.url)
             .output()
             .map(|out| String::from_utf8_lossy(&out.stdout).to_string())
-            .map(|out_string| serde_json::to_string_pretty(&out_string).unwrap())
             .unwrap_or("Something went wrong while executing curl".to_string());
     }
 }
