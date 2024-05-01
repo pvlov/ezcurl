@@ -1,5 +1,4 @@
 name: Pipeline
-run-name: Pipline for EZcurl
 on:
   push:
     branches:
@@ -7,6 +6,7 @@ on:
 jobs:
   format-and-lint:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -17,9 +17,7 @@ jobs:
           profile: minimal
 
       - name: Run cargo fmt
-      - run: |
-          cargo fmt --verbose --all -- --check
+        run: cargo fmt --verbose --all -- --check
 
       - name: Run cargo clippy
-        run: |
-          cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --all-targets --all-features -- -D warnings
